@@ -117,13 +117,13 @@ class Autoencoder(tf.keras.Model):
 
     def __init__(self, intermediate_dim, original_dim):
         super(Autoencoder, self).__init__()
-        
+
         # setup architecture
         self.encoder = Encoder(
             intermediate_dim=intermediate_dim)
         self.decoder = Decoder(
             intermediate_dim=intermediate_dim, original_dim=original_dim)
-        
+
         # helpful stuff
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
@@ -131,15 +131,15 @@ class Autoencoder(tf.keras.Model):
         code = self.encoder(input_features)
         reconstructed = self.decoder(code)
         return reconstructed
-    
+
     @tf.function
     def train_step(self, data, optimizer):
         with tf.GradientTape() as tape:
             loss = loss_func(self, data)
-            
+
             gradients = tape.gradient(loss, self.trainable_variables)
             optimizer.apply_gradients(zip(gradients, self.trainable_variables))
-            
+
         self.train_loss(loss)
 
 
@@ -183,7 +183,7 @@ loss_list = []
 for epoch in trange(epochs, desc='Epochs'):
     for step, batch_features in enumerate(training_dataset):
         autoencoder.train_step(batch_features, opt)
-        
+
     loss_list.append(autoencoder.train_loss.result().numpy())
 
 # ## Analysis
