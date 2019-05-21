@@ -15,8 +15,12 @@
 
 # +
 import numpy as np
+import pandas as pd
+
 import tensorflow as tf
 import tensorflow_probability as tfp
+
+from sklearn.decomposition import PCA
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -157,7 +161,7 @@ original_dim = 784
 # ### Load data
 
 # +
-(training_features, _), (test_features, _) = tf.keras.datasets.mnist.load_data()
+(training_features, training_labels), (test_features, _) = tf.keras.datasets.mnist.load_data()
 training_features = training_features / np.max(training_features)
 
 # flatten 2D images into 1D
@@ -218,3 +222,34 @@ for i, ap in enumerate(ax):
     for a in ap:
         a.set_xticks([])
         a.set_yticks([])
+
+
+# -
+
+# ### PCA
+
+def do_PCA(X, ndim=2):
+    pca = PCA(n_components=ndim)
+    pca.fit(X)
+    X_trans = pca.transform(X)
+    print(pca.explained_variance_ratio_)
+    return pd.DataFrame(X_trans, columns=[f'PC_{i}' for i in range(ndim)])
+
+
+# +
+latent_features = autoencoder.encoder(training_features)
+
+df_latent = do_PCA(latent_features)
+df_latent['label'] = training_labels
+df_latent['space'] = 'latent'
+# -
+
+df_original = do_PCA(training_features)
+df_original['label'] = training_labels
+df_original['space'] = 'original'
+
+df_pca = pd.concat([df_original, df_latent])
+
+g = sns.FacetGrid(df_pca, col='space', hue='label', height=8, legend_out=True)
+g.map_dataframe(sns.scatterplot, x='PC_0', y='PC_1')
+g.add_legend()
