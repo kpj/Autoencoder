@@ -75,7 +75,7 @@ def loss_func(model, original):
     )
 
 
-# ## Model
+# ## Design model
 
 # +
 class Encoder(tf.keras.layers.Layer):
@@ -141,7 +141,7 @@ class Autoencoder(tf.keras.Model):
 
 # -
 
-# ## Analysis
+# ## Run model
 
 # ### Parameters
 
@@ -182,14 +182,20 @@ for epoch in trange(epochs, desc='Epochs'):
         
     loss_list.append(autoencoder.train_loss.result().numpy())
 
-# ### Investigate results
+# ## Analysis
+
+# ### Loss development
 
 plt.plot(loss_list)
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
 
+# ### Fun in latent space
+
 inp = np.random.normal(size=64)
 plt.imshow(autoencoder.decoder([inp]).numpy()[0].reshape(28, 28))
+
+# ### Check specific examples
 
 original = tf.reshape(
     batch_features, (batch_features.shape[0], 28, 28))
