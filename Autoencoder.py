@@ -68,17 +68,6 @@ tf.matmul(m1, m2)
 # \frac{1}{N} \sum_{i=0}^N (\hat{x}_i - x_i)^2
 # $$
 
-def loss_func(model, original):
-    return tf.reduce_mean(
-        tf.square(
-            tf.subtract(
-                model(original),
-                original
-            )
-        )
-    )
-
-
 # ## Design model
 
 # +
@@ -131,11 +120,21 @@ class Autoencoder(tf.keras.Model):
         code = self.encoder(input_features)
         reconstructed = self.decoder(code)
         return reconstructed
+    
+    def compute_loss(self, data):
+        return tf.reduce_mean(
+            tf.square(
+                tf.subtract(
+                    self(data),
+                    data
+                )
+            )
+        )
 
     @tf.function
     def train_step(self, data, optimizer):
         with tf.GradientTape() as tape:
-            loss = loss_func(self, data)
+            loss = self.compute_loss(data)
 
             gradients = tape.gradient(loss, self.trainable_variables)
             optimizer.apply_gradients(zip(gradients, self.trainable_variables))
