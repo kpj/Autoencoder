@@ -15,6 +15,8 @@
 # ---
 
 # +
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -158,6 +160,23 @@ class Autoencoder(tf.keras.Model):
 
         self.train_loss(loss)
 
+    def save(self, fname):
+        """Save model.
+            https://www.tensorflow.org/alpha/guide/keras/saving_and_serializing#saving_subclassed_models
+        """
+        os.makedirs(os.path.dirname(fname), exist_ok=True)
+        self.save_weights(fname, save_format='tf')
+
+    @classmethod
+    def load_from_file(cls, fname):
+        model = cls(latent_dim, original_dim)  # TODO: load parameters from file
+
+        # train model briefly to infer architecture
+        # TODO
+
+        model.load_weights(fname)
+        return model
+
 
 # -
 
@@ -200,6 +219,10 @@ for epoch in trange(epochs, desc='Epochs'):
         autoencoder.train_step(batch_features, opt)
 
     loss_list.append(autoencoder.train_loss.result().numpy())
+
+autoencoder.save('models/autoencoder')
+
+# autoencoder = Autoencoder.load_from_file('models/autoencoder')
 
 # ## Analysis
 
