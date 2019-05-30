@@ -190,7 +190,7 @@ np.random.seed(1)
 tf.random.set_seed(1)
 
 batch_size = 128
-epochs = 20
+epochs = 100
 learning_rate = 1e-3
 latent_dim = 10
 original_dim = (28, 28)
@@ -199,6 +199,8 @@ original_dim = (28, 28)
 
 # +
 (training_features, training_labels), (test_features, _) = tf.keras.datasets.mnist.load_data()
+
+# normalize to range [0, 1]
 training_features = training_features / np.max(training_features)
 
 # flatten 2D images into 1D
