@@ -35,6 +35,8 @@ tfd = tfp.distributions
 
 plt.set_cmap('gray')
 sns.set_context('talk')
+
+os.makedirs('images', exist_ok=True)
 # -
 
 # # Glossary
@@ -228,9 +230,14 @@ autoencoder.save('models/autoencoder')
 
 # ### Loss development
 
+# +
 plt.plot(loss_list)
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
+
+plt.tight_layout()
+plt.savefig('images/loss_function.pdf')
+# -
 
 # ### Fun in latent space
 
@@ -246,20 +253,19 @@ reconstructed = tf.reshape(
     (batch_features.shape[0], 28, 28))
 
 # +
-N = 2
-fig, ax = plt.subplots(nrows=N, ncols=2, figsize=(10, N*5))
+N = 16
+fig, ax_list = plt.subplots(nrows=4, ncols=4, figsize=(8, 4))
 
-for i, ap in enumerate(ax):
-    ap[0].imshow(original.numpy()[i])
-    ap[1].imshow(reconstructed.numpy()[i])
+for i, ax in enumerate(ax_list.ravel()):
+    idx = np.random.randint(0, original.shape[0])
 
-    if i == 0:
-        ap[0].set_title('Input')
-        ap[1].set_title('Output')
+    img_orig = original.numpy()[idx]
+    img_recon = reconstructed.numpy()[idx]
 
-    for a in ap:
-        a.set_xticks([])
-        a.set_yticks([])
+    img_concat = np.concatenate([img_orig, img_recon], axis=1)
+
+    ax.imshow(img_concat)
+    ax.axis('off')
 
 
 # -
@@ -295,5 +301,6 @@ df_original['space'] = 'original'
 df_pca = pd.concat([df_original, df_latent])
 
 g = sns.FacetGrid(df_pca, col='space', hue='label', height=8, legend_out=True)
-g.map_dataframe(sns.scatterplot, x='PC_0', y='PC_1')
+g.map_dataframe(sns.scatterplot, x='PC_0', y='PC_1', rasterized=True)
 g.add_legend()
+g.savefig('images/pca.pdf')
