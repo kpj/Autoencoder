@@ -75,44 +75,60 @@ tf.matmul(m1, m2)
 class Encoder(tf.keras.layers.Layer):
     """Convert input to low-dimensional representation."""
 
-    def __init__(self, intermediate_dim):
+    def __init__(self, latent_dim, original_dim):
         super(Encoder, self).__init__()
-        self.hidden_layer = tf.keras.layers.Dense(
-            units=intermediate_dim, activation=tf.nn.relu)
-        self.output_layer = tf.keras.layers.Dense(
-            units=intermediate_dim, activation=tf.nn.relu)
+        self.network = tf.keras.Sequential([
+            tf.keras.layers.InputLayer(input_shape=(*original_dim, 1)),
 
-    def call(self, input_features):
-        activation = self.hidden_layer(input_features)
-        return self.output_layer(activation)
+            tf.keras.layers.Conv2D(
+                filters=32, kernel_size=3, strides=(2, 2), activation=tf.nn.relu),
+            tf.keras.layers.Conv2D(
+                filters=64, kernel_size=3, strides=(2, 2), activation=tf.nn.relu),
+
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(units=2*latent_dim)
+        ])
+
+    def call(self, x):
+        return self.network(x)
 
 
 class Decoder(tf.keras.layers.Layer):
     """Reconstruct input from low-dimensional representation."""
 
-    def __init__(self, intermediate_dim, original_dim):
+    def __init__(self, latent_dim, original_dim):
         super(Decoder, self).__init__()
-        self.hidden_layer = tf.keras.layers.Dense(
-            units=intermediate_dim, activation=tf.nn.relu)
-        self.output_layer = tf.keras.layers.Dense(
-            units=original_dim, activation=tf.nn.relu)
+        self.network = tf.keras.Sequential([
+            tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
+            tf.keras.layers.Dense(units=7*7*32, activation=tf.nn.relu),
+            tf.keras.layers.Reshape(target_shape=(7, 7, 32)),
 
-    def call(self, code):
-        activation = self.hidden_layer(code)
-        return self.output_layer(activation)
+            tf.keras.layers.Conv2DTranspose(
+                filters=64, kernel_size=3, strides=(2, 2), padding='SAME', activation=tf.nn.relu),
+            tf.keras.layers.Conv2DTranspose(
+                filters=32, kernel_size=3, strides=(2, 2), padding='SAME', activation=tf.nn.relu),
+
+            tf.keras.layers.Conv2DTranspose(
+                filters=1, kernel_size=3, strides=(1, 1), padding='SAME'),
+        ])
+
+    def call(self, z):
+        return self.network(z)
 
 
 class Autoencoder(tf.keras.Model):
     """Connect all components to single model."""
 
-    def __init__(self, intermediate_dim, original_dim):
+    def __init__(self, latent_dim, original_dim):
+        """Initialize everything."""
         super(Autoencoder, self).__init__()
+        self.latent_dim = latent_dim
 
         # setup architecture
-        self.encoder = Encoder(
-            intermediate_dim=intermediate_dim)
-        self.decoder = Decoder(
-            intermediate_dim=intermediate_dim, original_dim=original_dim)
+        self._encoder = Encoder(
+            latent_dim=self.latent_dim, original_dim=original_dim)
+        self._decoder = Decoder(
+            latent_dim=self.latent_dim, original_dim=original_dim)
 
         # helpful stuff
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
@@ -155,8 +171,8 @@ tf.random.set_seed(1)
 batch_size = 128
 epochs = 20
 learning_rate = 1e-3
-intermediate_dim = 64
-original_dim = 784
+latent_dim = 10
+original_dim = (28, 28)
 
 # ### Load data
 
@@ -165,17 +181,16 @@ original_dim = 784
 training_features = training_features / np.max(training_features)
 
 # flatten 2D images into 1D
-training_features = training_features.reshape(
-    training_features.shape[0],
-    training_features.shape[1] * training_features.shape[2]).astype(np.float32)
+training_features = training_features.reshape(training_features.shape[0], *original_dim, 1).astype(np.float32)
 
+# prepare dataset
 training_dataset = tf.data.Dataset.from_tensor_slices(training_features).batch(batch_size)
 training_dataset
 # -
 
 # ### Train model
 
-autoencoder = Autoencoder(intermediate_dim=intermediate_dim, original_dim=original_dim)
+autoencoder = Autoencoder(latent_dim=latent_dim, original_dim=original_dim)
 
 opt = tf.optimizers.Adam(learning_rate=learning_rate)
 
@@ -237,16 +252,22 @@ def do_PCA(X, ndim=2):
 
 
 # +
-latent_features = autoencoder.encoder(training_features)
+latent_features = autoencoder.encode(training_features)
+latent_features_1d = np.concatenate(latent_features, axis=1)
 
-df_latent = do_PCA(latent_features)
+df_latent = do_PCA(latent_features_1d)
 df_latent['label'] = training_labels
 df_latent['space'] = 'latent'
-# -
 
-df_original = do_PCA(training_features)
+# +
+data_train_1d = training_features.reshape(
+    training_features.shape[0],
+    training_features.shape[1]*training_features.shape[2])
+
+df_original = do_PCA(data_train_1d)
 df_original['label'] = training_labels
 df_original['space'] = 'original'
+# -
 
 df_pca = pd.concat([df_original, df_latent])
 
