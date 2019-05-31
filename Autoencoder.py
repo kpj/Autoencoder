@@ -137,30 +137,65 @@ class Autoencoder(tf.keras.Model):
         # helpful stuff
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
-    def call(self, input_features):
-        code = self.encoder(input_features)
-        reconstructed = self.decoder(code)
+    def encode(self, x):
+        """Input -> latent distribution."""
+        mean, logvar = tf.split(self._encoder(x), num_or_size_splits=2, axis=1)
+        return mean, logvar
+
+    def _reparameterize(self, mean, logvar):
+        """Trick which is needed for backpropagation."""
+        eps = tf.random.normal(shape=mean.shape)
+        return eps * tf.exp(logvar * .5) + mean
+
+    def decode(self, z):
+        """Latent -> input space."""
+        return self._decoder(z)
+
+    def call(self, x):
+        """Generate distribution from input and reconstruct using it."""
+        mu, _ = tf.split(self._encoder(x), num_or_size_splits=2, axis=1)
+        # why do we only pass mu?
+        reconstructed = self.decode(mu)
         return reconstructed
-    
-    def compute_loss(self, data):
-        return tf.reduce_mean(
-            tf.square(
-                tf.subtract(
-                    self(data),
-                    data
-                )
-            )
-        )
+
+    def log_normal_pdf(self, sample, mean, logvar, raxis=1):
+        log2pi = tf.math.log(2. * np.pi)
+        return tf.reduce_sum(
+            -.5 * ((sample - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi),
+            axis=raxis)
+
+    def compute_loss(self, x):
+        """ Compute loss.
+
+            Hmmmmm
+        """
+        mean, logvar = self.encode(x)
+        z = self._reparameterize(mean, logvar)
+        x_logit = self.decode(z)
+
+        cross_ent = tf.nn.sigmoid_cross_entropy_with_logits(logits=x_logit, labels=x)
+        logpx_z = -tf.reduce_sum(cross_ent, axis=[1, 2, 3])
+        logpz = self.log_normal_pdf(z, 0., 0.)
+        logqz_x = self.log_normal_pdf(z, mean, logvar)
+
+        return -tf.reduce_mean(logpx_z + logpz - logqz_x)
+
+    def compute_gradients(self, x):
+        with tf.GradientTape() as tape:
+            loss = self.compute_loss(x)
+            self.train_loss(loss)
+
+            return tape.gradient(loss, self.trainable_variables)
 
     @tf.function
-    def train_step(self, data, optimizer):
-        with tf.GradientTape() as tape:
-            loss = self.compute_loss(data)
+    def train(self, x, optimizer):
+        gradients = self.compute_gradients(x)
+        optimizer.apply_gradients(zip(gradients, self.trainable_variables))
 
-            gradients = tape.gradient(loss, self.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, self.trainable_variables))
-
-        self.train_loss(loss)
+    def sample(self, eps=None):
+        if eps is None:
+            eps = tf.random.normal(shape=(100, self.latent_dim))
+        return self.decode(eps)
 
     def save(self, fname):
         """Save model.
@@ -220,7 +255,7 @@ opt = tf.optimizers.Adam(learning_rate=learning_rate)
 loss_list = []
 for epoch in trange(epochs, desc='Epochs'):
     for step, batch_features in enumerate(training_dataset):
-        autoencoder.train_step(batch_features, opt)
+        autoencoder.train(batch_features, opt)
 
     loss_list.append(autoencoder.train_loss.result().numpy())
 
