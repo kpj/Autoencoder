@@ -300,10 +300,28 @@ plt.tight_layout()
 plt.savefig('images/loss_function.pdf')
 # -
 
-# ### Fun in latent space
+# ### Generate new samples
 
-inp = np.random.normal(size=64)
-plt.imshow(autoencoder.decoder([inp]).numpy()[0].reshape(28, 28))
+# +
+# inp = tf.random.normal(shape=(4, latent_dim), mean=10)
+inp = np.asarray([[0.] * latent_dim])
+
+inp[0][4] = -2
+
+# +
+N = 5
+fig, ax_arr = plt.subplots(N, N)
+
+for i, x in enumerate(np.linspace(-10, 10, N)):
+    for j, y in enumerate(np.linspace(-10, 10, N)):
+        ax = ax_arr[i, j]
+        inp[0][:2] = np.random.normal([x, y])
+
+        img = autoencoder.sample(inp).numpy()
+
+        ax.imshow(img[0,:,:,0])
+        ax.axis('off')
+# -
 
 # ### Check specific examples
 
