@@ -44,6 +44,15 @@ os.makedirs('images', exist_ok=True)
 # * epoch: one cycle through training data (made up of many steps)
 # * step: one gradient update per batch of data
 # * learning rate: how fast to follow gradient (in gradient descent)
+#
+# * neural network: find function $y = f(x)$ with features $x$ and values/labels $y$ (regression/classification)
+# * autoencoder:
+#     * find function mapping $x$ to itself: $z = f(h_e(x))$, $\hat{x} = f(h_d(z))$
+#     * undercomplete: $dim(latent\ space) < dim(input\ space)$ (vs overcomplete)
+#     * problem of capacity:
+#         * if encoder is too powerful, one dimensional latent space could encode all training samples -> autoencoder fails to learn anything useful
+#     * regularized: sophisticated loss-function (sparsity, robustness, ...)
+#     * variational: enforce distribution for latent space
 
 # # Introduction
 
@@ -65,12 +74,27 @@ tf.matmul(m1, m2)
 
 # -
 
-# # Basic Autoencoder
+# # Variational Autoencoder
 
-# ## Loss function
+# ## Theory
 
+# Given data $X$, latent variable $z$, probability distribution of data $P(X)$, p.d. of latent variable $P(z)$, p.d. of generated data given latent variable $P(X|z)$
+#
+# Goal is to model data, i.e. find $P(X) = \int P(X|z) P(z)$
+#
+# Idea of VAE:
+#
+# * infer $P(z)$ from $P(z|X)$ using variational inference (inference as optimization problem)
+# * model $P(z|X)$ using $Q(z|X)$, $Q$ is typically Gaussian
+# * components:
+#     * encoder: $Q(z|X)$
+#     * decoder: $P(X|z)$
+#
+# Measure difference between two distributions: Kullback–Leibler divergence
+#
+# Objective function:
 # $$
-# \frac{1}{N} \sum_{i=0}^N (\hat{x}_i - x_i)^2
+# \log P(X)-D_{K L}[Q(z | X) \| P(z | X)]=E[\log P(X | z)]-D_{K L}[Q(z | X) \| P(z)]
 # $$
 
 # ## Design model
